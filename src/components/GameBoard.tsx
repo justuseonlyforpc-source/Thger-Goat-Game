@@ -7,7 +7,8 @@ import {
   getAITransit 
 } from "../utils/gameLogic";
 import { GameMode, PlayerType } from "../types";
-import { Trophy, Shield, RefreshCw, Zap, Users, ShieldAlert, Cpu } from "lucide-react";
+import { Trophy, Shield, RefreshCw, Zap, Users, ShieldAlert, Cpu, Volume2, VolumeX } from "lucide-react";
+import { playTigerRoar, playGoatBleat, playKillSound, playLockSound } from "../utils/audioSystem";
 
 interface GameBoardProps {
   gameMode: GameMode;
@@ -27,6 +28,30 @@ export default function GameBoard({ gameMode, onResetCount, difficulty = "MEDIUM
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [hoveredPointId, setHoveredPointId] = useState<number | null>(null);
   const [consecutiveCapturePos, setConsecutiveCapturePos] = useState<number | null>(null);
+
+  // Mute preference state
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("game_sound_muted");
+      return saved === "true";
+    }
+    return false;
+  });
+
+  const toggleMute = () => {
+    setIsMuted((prev) => {
+      const nextVal = !prev;
+      localStorage.setItem("game_sound_muted", String(nextVal));
+      return nextVal;
+    });
+  };
+
+  // Sound Effect: Play goat sound whenever it becomes the goats' turn to move
+  useEffect(() => {
+    if (turn === "GOAT" && !gameOver) {
+      playGoatBleat(isMuted);
+    }
+  }, [turn, gameOver]);
 
   // Restart trigger
   useEffect(() => {
@@ -65,6 +90,7 @@ export default function GameBoard({ gameMode, onResetCount, difficulty = "MEDIUM
       setGameOver(true);
       setWinner("GOAT");
       addToHistory("Goats WIN! The Tiger has been completely surrounded and locked.");
+      playLockSound(isMuted);
       return true;
     }
 
@@ -95,6 +121,7 @@ export default function GameBoard({ gameMode, onResetCount, difficulty = "MEDIUM
               setGoats(updatedGoats);
               setTigerPos(aiMove.to);
               addToHistory(`🤖 Tiger (AI) jumps ${aiMove.from} → ${aiMove.to}, eating Goat at ${aiMove.captured}`);
+              playKillSound(isMuted);
               
               // Evaluate if there's any available consecutive jump capture from the landing position
               const { jumpMoves: nextJumps } = getTigerActions(aiMove.to, updatedGoats);
@@ -110,6 +137,7 @@ export default function GameBoard({ gameMode, onResetCount, difficulty = "MEDIUM
             } else {
               setTigerPos(aiMove.to);
               addToHistory(`🤖 Tiger (AI) moves ${aiMove.from} → ${aiMove.to}`);
+              playTigerRoar(isMuted);
               setConsecutiveCapturePos(null);
               checkVictory(aiMove.to, goats);
               setTurn("GOAT");
@@ -121,6 +149,7 @@ export default function GameBoard({ gameMode, onResetCount, difficulty = "MEDIUM
             updatedGoats.add(aiMove.to);
             setGoats(updatedGoats);
             addToHistory(`🤖 Goat (AI) moves ${aiMove.from} → ${aiMove.to}`);
+            playGoatBleat(isMuted);
             checkVictory(tigerPos, updatedGoats);
             setTurn("TIGER");
             setSelectedPoint(null);
@@ -137,6 +166,7 @@ export default function GameBoard({ gameMode, onResetCount, difficulty = "MEDIUM
               setGameOver(true);
               setWinner("GOAT");
               addToHistory("Tiger has no legal moves! Goats Win!");
+              playLockSound(isMuted);
             } else {
               setGameOver(true);
               setWinner("TIGER");
@@ -204,6 +234,7 @@ export default function GameBoard({ gameMode, onResetCount, difficulty = "MEDIUM
         // Simple step directly
         setTigerPos(id);
         addToHistory(`Tiger moves ${tigerPos} → ${id}`);
+        playTigerRoar(isMuted);
         checkVictory(id, goats);
         setTurn("GOAT");
         setSelectedPoint(null);
@@ -216,6 +247,7 @@ export default function GameBoard({ gameMode, onResetCount, difficulty = "MEDIUM
           setGoats(nextGoats);
           setTigerPos(id);
           addToHistory(`Tiger ate Goat at ${matchingJump.goatPos}! Jumps ${tigerPos} → ${id}`);
+          playKillSound(isMuted);
           
           // Check for another consecutive capture option
           const { jumpMoves: nextJumps } = getTigerActions(id, nextGoats);
@@ -250,6 +282,7 @@ export default function GameBoard({ gameMode, onResetCount, difficulty = "MEDIUM
           nextGoats.add(id);
           setGoats(nextGoats);
           addToHistory(`Goat moves ${selectedPoint} → ${id}`);
+          playGoatBleat(isMuted);
           checkVictory(tigerPos, nextGoats);
           setTurn("TIGER");
           setSelectedPoint(null);
@@ -599,13 +632,24 @@ export default function GameBoard({ gameMode, onResetCount, difficulty = "MEDIUM
             <h3 className="text-xs uppercase font-extrabold tracking-wider text-stone-400 flex items-center gap-1.5">
               <ShieldAlert className="w-4 h-4 text-amber-600" /> Battle Record
             </h3>
-            <button
-              onClick={resetGame}
-              className="text-stone-400 hover:text-stone-600 active:scale-95 transition-all"
-              title="Reset Match"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleMute}
+                className="text-stone-400 hover:text-amber-600 active:scale-95 transition-all cursor-pointer p-1 rounded-lg hover:bg-stone-100"
+                title={isMuted ? "Unmute sound" : "Mute sound"}
+                id="sound_mute_toggle"
+              >
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={resetGame}
+                className="text-stone-400 hover:text-stone-600 active:scale-95 transition-all cursor-pointer p-1 rounded-lg hover:bg-stone-100"
+                title="Reset Match"
+                id="game_board_reset"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Scrolling History Log Container */}
