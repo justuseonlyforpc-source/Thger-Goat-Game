@@ -1,0 +1,6 @@
+{
+  "name": "Sher aur Bakri Board Game",
+  "description": "An interactive web implementation and Python Pygame exporter for the traditional Sher aur Bakri (Tiger and Goats) 19-point hourglass board game.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
